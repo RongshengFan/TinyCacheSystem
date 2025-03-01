@@ -80,5 +80,6 @@ make clean
 | ARC Cache      | 5      | 1192          | 500000   | 419463               |
 | Hash LRU Cache | 5      | 978           | 500000   | 511247               |
 | Hash LFU Cache | 5      | 1177          | 500000   | 424809               |
+
 Hash LRU 相对于 LRU 的性能提升约为 12.72%。
 Hash LFU 相对于 LFU 的性能提升约为 171.26%。
