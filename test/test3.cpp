@@ -1,3 +1,5 @@
+/* 热点数据访问测试，测试缓存命中率*/
+
 #include <random>
 #include <iostream>
 #include <thread>
@@ -5,75 +7,66 @@
 #include <chrono>
 #include <cassert>
 #include "../include/CachePolicy.h"
-#include "../include/LruCache.h"
 #include "../include/LfuCache.h"
+#include "../include/LruCache.h"
 #include "../include/ArcCache.h"
 
-// 并发测试的通用函数
+// 测试命中率的通用函数
 template <typename Cache>
-void testConcurrency(Cache& cache, size_t testDataSize, int numThreads, std::string cacheName) {
+void testHitRate(Cache& cache, size_t testDataSize, std::string cacheName) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(0, testDataSize - 1);
 
-    // 定义线程函数
-    auto task = [&](Cache& cache) {
-        for (size_t i = 0; i < testDataSize; ++i) {
-            int key = dis(gen);
-            auto value = cache.get(key);
-            if (value != 0) { // 如果存在，更新值
-                cache.put(key, value + 1);
-            } else { // 如果不存在，添加新值
-                cache.put(key, key + 1);
-            }
+    size_t hit = 0;
+    size_t miss = 0;
+    const int HOT_KEYS = 3;            
+    const int COLD_KEYS = 5000;
+
+    for (int i = 0; i < testDataSize; ++i) {
+        int key;
+        if (i % 100 < 40) {  // 40%概率访问热点
+            key = gen() % HOT_KEYS;
+        } else {  // 60%概率访问冷数据
+            key = HOT_KEYS + (gen() % COLD_KEYS);
         }
-    };
-
-    // 获取初始时间
-    auto start = std::chrono::high_resolution_clock::now();
-
-    // 创建多个线程执行任务
-    std::vector<std::thread> threads;
-    for (int i = 0; i < numThreads; ++i) {
-        threads.emplace_back(task, std::ref(cache));
+        
+        int value;
+        if (cache.get(key, value)) { // 假设初始所有键对应的值均为0
+            hit++;
+        } else {
+            miss++;
+            cache.put(key, key + 1);
+        }
     }
 
-    // 等待所有线程完成
-    for (auto& t : threads) {
-        t.join();
-    }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-
-    // 计算 QPS
-    double totalRequests = static_cast<double>(testDataSize * numThreads);
-    double qps = totalRequests / (duration / 1000.0);
-
+    std::cout << "-----------热点数据访问测试--------------\n";
     std::cout << "测试缓存：    " << cacheName << std::endl;
-    std::cout << "线程数：      " << numThreads << std::endl;
-    std::cout << "测试用时：    " << duration << "ms" << std::endl;
-    std::cout << "总请求数：    " << totalRequests << std::endl;
-    std::cout << "QPS：" << qps << " queries/second" << std::endl;
+    std::cout << "命中次数：    " << hit << std::endl;
+    std::cout << "未命中次数：  " << miss << std::endl;
+    std::cout << "命中率：      " << static_cast<double>(hit) / (hit + miss) * 100 << "%\n";
     std::cout << "----------------------------------------\n";
 }
 
 int main() {
-    size_t cacheCapacity = 100;
-    size_t testDataSize = 100000;
-    int numThreads = 10;
+    size_t cacheCapacity = 50;
+    size_t testDataSize = 1000;
 
-    // 测试分片 LRU 缓存的并发性
-    mycache::HashLruCache<int, int> hashLruCache(cacheCapacity, 4);
-    testConcurrency(hashLruCache, testDataSize, numThreads, "Hash LRU Cache");
+    // 测试 LRU 缓存命中率
+    mycache::LruCache<int, int> lruCache(cacheCapacity);
+    testHitRate(lruCache, testDataSize, "LRU Cache");
 
-    // 测试分片 LFU 缓存的并发性
-    mycache::HashLfuCache<int, int> hashLfuCache(cacheCapacity, 4);
-    testConcurrency(hashLfuCache, testDataSize, numThreads, "Hash LFU Cache");
+    // 测试 LRU-K 缓存命中率
+    mycache::LruKCache<int, int> lrukCache(cacheCapacity, cacheCapacity/2, 2);
+    testHitRate(lrukCache,  testDataSize, "LRU-K Cache");
 
-    // 测试 ARC 缓存的并发性
-    mycache::ArcCache<int, int> arcCache;
-    testConcurrency(arcCache, testDataSize, numThreads, "ARC Cache");
+    // 测试 LFU 缓存命中率
+    mycache::LfuCache<int, int> lfuCache(cacheCapacity);
+    testHitRate(lfuCache, testDataSize, "LFU Cache");
+
+    // 测试 ARC 缓存命中率
+    mycache::ArcCache<int, int> arcCache(cacheCapacity);
+    testHitRate(arcCache, testDataSize, "ARC Cache");
 
     return 0;
 }

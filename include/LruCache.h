@@ -195,19 +195,19 @@ public:
 
 //LRU-k缓存模板类
 template<typename K, typename V>
-class LurKCache:public LruCache<K,V>
+class LruKCache:public LruCache<K,V>
 {
 private:
     int k;                                          //判断是否进入缓存队列的k值
     std::unique_ptr<LruCache<K,size_t>> historyList;//访问历史记录链表
 
 public:
-    LurKCache(size_t n, size_t historyCapacity, int k_) 
+    LruKCache(size_t n, size_t historyCapacity, int k_) 
     : LruCache<K,V>(n) 
     , k(k_)
     , historyList(std::make_unique<LruCache<K,size_t>>(historyCapacity))
     {}
-    ~LurKCache()override = default;
+    ~LruKCache()override = default;
 
     void put(const K& key, const V& value) 
     {

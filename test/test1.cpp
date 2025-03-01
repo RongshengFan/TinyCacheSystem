@@ -1,213 +1,84 @@
-#include <iostream>
-#include <string>
-#include <chrono>
-#include <vector>
-#include <iomanip>
-#include <random>
-#include <algorithm>
+/* 循环扫描访问测试，测试缓存命中率*/
 
+#include <random>
+#include <iostream>
+#include <thread>
+#include <vector>
+#include <chrono>
+#include <cassert>
 #include "../include/CachePolicy.h"
 #include "../include/LfuCache.h"
 #include "../include/LruCache.h"
 #include "../include/ArcCache.h"
 
-class Timer {
-public:
-    Timer() : start_(std::chrono::high_resolution_clock::now()) {}
-    
-    double elapsed() {
-        auto now = std::chrono::high_resolution_clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(now - start_).count();
-    }
-
-private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> start_;
-};
-
-// 辅助函数：打印结果
-void printResults(const std::string& testName, int capacity, 
-                 const std::vector<int>& get_operations, 
-                 const std::vector<int>& hits) {
-    std::cout << "缓存大小:     " << capacity << std::endl;
-    std::cout << "LRU - 命中率: " << std::fixed << std::setprecision(2) 
-              << (100.0 * hits[0] / get_operations[0]) << "%" << std::endl;
-    std::cout << "LFU - 命中率: " << std::fixed << std::setprecision(2) 
-              << (100.0 * hits[1] / get_operations[1]) << "%" << std::endl;
-    std::cout << "ARC - 命中率: " << std::fixed << std::setprecision(2) 
-              << (100.0 * hits[2] / get_operations[2]) << "%" << std::endl;
-}
-
-void testHotDataAccess() {
-    std::cout << "\n=== 测试场景1：热点数据访问测试 ===" << std::endl;
-    
-    const int CAPACITY = 10;             
-    const int OPERATIONS = 1000000;      
-    const int HOT_KEYS = 5;            
-    const int COLD_KEYS = 5000;        
-    
-    mycache::LruCache<int, std::string> lru(CAPACITY);
-    mycache::LfuCache<int, std::string> lfu(CAPACITY);
-    mycache::ArcCache<int, std::string> arc(CAPACITY);
-
+// 测试命中率的通用函数
+template <typename Cache>
+void testHitRate(Cache& cache, size_t testDataSize, std::string cacheName) {
     std::random_device rd;
     std::mt19937 gen(rd());
-    
-    mycache::CachePolicy<int, std::string>*caches[3] = {&lru, &lfu, &arc};
-    std::vector<int> hits(3, 0);
-    std::vector<int> get_operations(3, 0);
+    std::uniform_int_distribution<> dis(0, testDataSize - 1);
 
-    // 先进行一系列put操作
-    for (int i = 0; i < 3; ++i) {
-        for (int op = 0; op < OPERATIONS; ++op) {
-            int key;
-            if (op % 100 < 40) {  // 40%热点数据
-                key = gen() % HOT_KEYS;
-            } else {  // 60%冷数据
-                key = HOT_KEYS + (gen() % COLD_KEYS);
-            }
-            std::string value = "value" + std::to_string(key);
-            caches[i]->put(key, value);
-        }
-        
-        // 然后进行随机get操作
-        for (int get_op = 0; get_op < OPERATIONS/2; ++get_op) {
-            int key;
-            if (get_op % 100 < 40) {  // 40%概率访问热点
-                key = gen() % HOT_KEYS;
-            } else {  // 60%概率访问冷数据
-                key = HOT_KEYS + (gen() % COLD_KEYS);
-            }
-            
-            std::string result;
-            get_operations[i]++;
-            if (caches[i]->get(key, result)) {
-                hits[i]++;
-            }
-        }
-    }
+    size_t hit = 0;
+    size_t miss = 0;
 
-    printResults("热点数据访问测试", CAPACITY, get_operations, hits);
-}
-
-void testLoopPattern() {
-    std::cout << "\n=== 测试场景2：循环扫描测试 ===" << std::endl;
-    
-    const int CAPACITY = 10;            
-    const int LOOP_SIZE = 200;         
-    const int OPERATIONS = 1000000;      
-    
-    mycache::LruCache<int, std::string> lru(CAPACITY);
-    mycache::LfuCache<int, std::string> lfu(CAPACITY);
-    mycache::ArcCache<int, std::string> arc(CAPACITY);
-
-    mycache::CachePolicy<int, std::string>* caches[3] = {&lru, &lfu, &arc};
-    std::vector<int> hits(3, 0);
-    std::vector<int> get_operations(3, 0);
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
+    const int loopSize = 200;         
+    // 获取初始时间
+    auto start = std::chrono::high_resolution_clock::now();
 
     // 先填充数据
-    for (int i = 0; i < 3; ++i) {
-        for (int key = 0; key < LOOP_SIZE * 2; ++key) {
-            std::string value = "loop" + std::to_string(key);
-            caches[i]->put(key, value);
+    for (int key = 0; key < loopSize * 2; ++key) {
+        cache.put(key, key + 1);
+    }
+        
+    // 然后进行访问测试
+    int pos = 0;
+    for (int i = 0; i < testDataSize; ++i) {
+        int key;
+        if (i % 100 < 70) {  // 70%顺序扫描
+            key = pos;
+            pos = (pos + 1) % loopSize;
+        } else if (i % 100 < 85) {  // 15%随机跳跃
+            key = gen() % loopSize;
+        } else {  // 15%访问范围外数据
+            key = loopSize + (gen() % loopSize);
         }
         
-        // 然后进行访问测试
-        int current_pos = 0;
-        for (int op = 0; op < OPERATIONS; ++op) {
-            int key;
-            if (op % 100 < 70) {  // 70%顺序扫描
-                key = current_pos;
-                current_pos = (current_pos + 1) % LOOP_SIZE;
-            } else if (op % 100 < 85) {  // 15%随机跳跃
-                key = gen() % LOOP_SIZE;
-            } else {  // 15%访问范围外数据
-                key = LOOP_SIZE + (gen() % LOOP_SIZE);
-            }
-            
-            std::string result;
-            get_operations[i]++;
-            if (caches[i]->get(key, result)) {
-                hits[i]++;
-            }
+        int value;
+        if (cache.get(key, value)) {
+            hit++;
         }
-    }
+        else {
+            miss++;
+            cache.put(key, key + 1);
+        }
+    }        
 
-    printResults("循环扫描测试", CAPACITY, get_operations, hits);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "-----------循环扫描访问测试--------------\n";
+    std::cout << "测试缓存：    " << cacheName << std::endl;
+    std::cout << "命中次数：    " << hit << std::endl;
+    std::cout << "未命中次数：  " << miss << std::endl;
+    std::cout << "命中率：      " << static_cast<double>(hit) / (hit + miss) * 100 << "%\n";
+    std::cout << "测试用时：    " << duration << "ms\n\n";
+    std::cout << "----------------------------------------\n";
 }
-
-void testWorkloadShift() {
-    std::cout << "\n=== 测试场景3：工作负载剧烈变化测试 ===" << std::endl;
-    
-    const int CAPACITY = 10;            
-    const int OPERATIONS = 1000000;      
-    const int PHASE_LENGTH = OPERATIONS / 5;
-    
-    mycache::LruCache<int, std::string> lru(CAPACITY);
-    mycache::LfuCache<int, std::string> lfu(CAPACITY);
-    mycache::ArcCache<int, std::string> arc(CAPACITY);
-
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    mycache::CachePolicy<int, std::string>*caches[3] = {&lru, &lfu, &arc};
-    std::vector<int> hits(3, 0);
-    std::vector<int> get_operations(3, 0);
-
-    // 先填充一些初始数据
-    for (int i = 0; i < 3; ++i) {
-        for (int key = 0; key < 1000; ++key) {
-            std::string value = "init" + std::to_string(key);
-            caches[i]->put(key, value);
-        }
-        
-        // 然后进行多阶段测试
-        for (int op = 0; op < OPERATIONS; ++op) {
-            int key;
-            // 根据不同阶段选择不同的访问模式
-            if (op < PHASE_LENGTH) {  // 热点访问
-                key = gen() % 5;
-            } else if (op < PHASE_LENGTH * 2) {  // 大范围随机
-                key = gen() % 1000;
-            } else if (op < PHASE_LENGTH * 3) {  // 顺序扫描
-                key = (op - PHASE_LENGTH * 2) % 100;
-            } else if (op < PHASE_LENGTH * 4) {  // 局部性随机
-                int locality = (op / 1000) % 10;
-                key = locality * 20 + (gen() % 20);
-            } else {  // 混合访问
-                int r = gen() % 100;
-                if (r < 30) {
-                    key = gen() % 5;
-                } else if (r < 60) {
-                    key = 5 + (gen() % 95);
-                } else {
-                    key = 100 + (gen() % 900);
-                }
-            }
-            
-            std::string result;
-            get_operations[i]++;
-            if (caches[i]->get(key, result)) {
-                hits[i]++;
-            }
-            
-            // 随机进行put操作，更新缓存内容
-            if (gen() % 100 < 30) {  // 30%概率进行put
-                std::string value = "new" + std::to_string(key);
-                caches[i]->put(key, value);
-            }
-        }
-    }
-
-    printResults("工作负载剧烈变化测试", CAPACITY, get_operations, hits);
-}
-
-
 
 int main() {
-    testHotDataAccess();
-    testLoopPattern();
-    testWorkloadShift();
+    size_t cacheCapacity = 100;
+    size_t testDataSize = 1000000;
+
+    // 测试 LRU 缓存命中率
+    mycache::LruCache<int, int> lruCache(cacheCapacity);
+    testHitRate(lruCache, testDataSize, "LRU Cache");  
+    
+    // 测试 LFU 缓存命中率
+    mycache::LfuCache<int, int> lfuCache(cacheCapacity);
+    testHitRate(lfuCache, testDataSize, "LFU Cache");
+
+    // 测试 ARC 缓存命中率
+    mycache::ArcCache<int, int> arcCache(cacheCapacity);
+    testHitRate(arcCache, testDataSize, "ARC Cache");
+
     return 0;
 }
