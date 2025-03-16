@@ -44,19 +44,19 @@
 
 进入test文件夹
 
-‘cd test’
+``cd test``
 
 清理原先的编译文件
 
-`make clean`
+``make clean``
 
 编译
 
-`make`
+``make``
 
 运行
 
-`./test4`
+``./test4``
 
 也可以是其他测试文件，如test1，test2等。
 
