@@ -44,7 +44,7 @@
 
 进入test文件夹
 
-`cd test`
+‘cd test’
 
 清理原先的编译文件
 
