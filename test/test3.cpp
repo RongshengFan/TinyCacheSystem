@@ -10,7 +10,7 @@
 #include "../include/LfuCache.h"
 #include "../include/LruCache.h"
 #include "../include/ArcCache.h"
-
+#include "../include/ClockCache.h"
 // 测试命中率的通用函数
 template <typename Cache>
 void testHitRate(Cache& cache, size_t testDataSize, std::string cacheName) {
@@ -50,7 +50,7 @@ void testHitRate(Cache& cache, size_t testDataSize, std::string cacheName) {
 
 int main() {
     size_t cacheCapacity = 50;
-    size_t testDataSize = 1000;
+    size_t testDataSize = 10000;
 
     // 测试 LRU 缓存命中率
     mycache::LruCache<int, int> lruCache(cacheCapacity);
@@ -63,6 +63,10 @@ int main() {
     // 测试 LFU 缓存命中率
     mycache::LfuCache<int, int> lfuCache(cacheCapacity);
     testHitRate(lfuCache, testDataSize, "LFU Cache");
+    
+    // 测试 Clock 缓存命中率
+    mycache::ClockCache<int, int> clockCache(cacheCapacity);
+    testHitRate(clockCache, testDataSize, "Clock Cache");
 
     // 测试 ARC 缓存命中率
     mycache::ArcCache<int, int> arcCache(cacheCapacity);

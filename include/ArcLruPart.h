@@ -21,18 +21,16 @@ private:
     size_t mainCapacity;            //主缓存容量
     size_t ghostCapacity;           //幽灵缓存容量
     size_t transformThreshold;      //转移阈值
-    std::mutex mtx;               //互斥锁
+    std::mutex mtx;                //互斥锁
 
     NodeMap mainCache;              //主缓存
     NodeMap ghostCache;             //幽灵缓存
 
-    //主链表
-    NodePtr mainHead;
-    NodePtr mainTail;
+    NodePtr mainHead;               //主链表虚拟头节点
+    NodePtr mainTail;               //主链表虚拟尾节点
     
-    //幽灵链表
-    NodePtr ghostHead;
-    NodePtr ghostTail;
+    NodePtr ghostHead;              //幽灵链表虚拟头节点
+    NodePtr ghostTail;              //幽灵链表虚拟尾节点
     
 public:
     explicit ArcLruPart(size_t capacity, size_t TransformThreshold)
@@ -96,6 +94,7 @@ public:
     //检查节点是否在ghost缓存中，是则移回主缓存
     bool checkGhost(const K& key)
     {
+        std::lock_guard<std::mutex> lock(mtx);
         auto it = ghostCache.find(key);
         if(it != ghostCache.end()){
             removeGhostNode(it->second);
@@ -107,18 +106,18 @@ public:
 
     void increaseCapacity()
     {
-        mainCapacity++;
+
+        mainCapacity++; 
     }
 
     bool decreaseCapacity()
     {
         if(mainCapacity <= 0)
-        {
+        {   
+            mainCapacity = 0;
             return false;
         }
-
-        
-        if(mainCapacity == mainCache.size())
+        if(mainCapacity >= mainCache.size())
         {
             //缓存已满则移除最近最久未用节点
             evictLeastRecent();

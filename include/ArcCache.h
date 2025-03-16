@@ -57,8 +57,8 @@ public:
     explicit ArcCache(size_t Capacity = 10, size_t TransformThreshold = 3)
     : capacity(Capacity)
     , transformThreshold(TransformThreshold)
-    , lruPart(std::make_unique<ArcLruPart<K, V>>(Capacity, TransformThreshold))
-    , lfuPart(std::make_unique<ArcLfuPart<K, V>>(Capacity, TransformThreshold))
+    , lruPart(std::make_unique<ArcLruPart<K, V>>(Capacity/2, TransformThreshold))
+    , lfuPart(std::make_unique<ArcLfuPart<K, V>>(Capacity/2, TransformThreshold))
     {}
 
     ~ArcCache() override = default;

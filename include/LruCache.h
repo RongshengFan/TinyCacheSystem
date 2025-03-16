@@ -22,6 +22,7 @@ public:
     LruNode(const K& k, const V& v) 
     : key(k)
     , value(v)
+    , dirty(false)
     , prev(nullptr)
     , next(nullptr) {}
 
@@ -35,6 +36,7 @@ public:
 private:
     K key;
     V value;
+    bool dirty;
     std::shared_ptr<LruNode<K,V>> prev;
     std::shared_ptr<LruNode<K,V>> next;
 };

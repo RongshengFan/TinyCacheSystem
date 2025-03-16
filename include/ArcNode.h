@@ -11,6 +11,7 @@ class ArcNode
 private:
     K key;
     V value;
+    bool dirty;
     size_t accessCount;                 //访问次数
     std::shared_ptr<ArcNode<K,V>> prev;
     std::shared_ptr<ArcNode<K,V>> next;
@@ -18,6 +19,7 @@ public:
     ArcNode(const K& k, const V& v) 
     : key(k)
     , value(v)
+    , dirty(false)
     , accessCount(1)
     , prev(nullptr)
     , next(nullptr) {}

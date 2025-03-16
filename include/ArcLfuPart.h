@@ -103,9 +103,10 @@ public:
     {
         if(mainCapacity <= 0)
         {   
+            mainCapacity = 0;
             return false;
         }
-        if(mainCapacity == mainCache.size())
+        if(mainCapacity >= mainCache.size())
         {// 如果主缓存已满，则移除访问频次最低的节点
             evictLeastFrequent();
         }

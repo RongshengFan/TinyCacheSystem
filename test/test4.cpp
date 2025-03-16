@@ -4,11 +4,12 @@
 #include <vector>
 #include <chrono>
 #include <cassert>
+#include <Windows.h>
 #include "../include/CachePolicy.h"
 #include "../include/LruCache.h"
 #include "../include/LfuCache.h"
 #include "../include/ArcCache.h"
-
+#include "../include/ClockCache.h"
 // 并发测试的通用函数
 template <typename Cache>
 void testConcurrency(Cache& cache, size_t testDataSize, int numThreads, std::string cacheName) {
@@ -42,7 +43,6 @@ void testConcurrency(Cache& cache, size_t testDataSize, int numThreads, std::str
     for (auto& t : threads) {
         t.join();
     }
-
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
@@ -60,8 +60,8 @@ void testConcurrency(Cache& cache, size_t testDataSize, int numThreads, std::str
 
 int main() {
     size_t cacheCapacity = 100;
-    size_t testDataSize = 100000;
-    int numThreads = 5;
+    size_t testDataSize = 400;
+    int numThreads = 25;
 
     // 测试 LRU 缓存的并发性
     mycache::LruCache<int, int> LruCache(cacheCapacity);
@@ -70,6 +70,10 @@ int main() {
     // 测试 LFU 缓存的并发性
     mycache::LfuCache<int, int> LfuCache(cacheCapacity);
     testConcurrency(LfuCache, testDataSize, numThreads, "LFU Cache");
+
+    // 测试 Clock 缓存的并发性
+    mycache::ClockCache<int, int> clockCache(cacheCapacity);
+    testConcurrency(clockCache, testDataSize, numThreads, "Clock Cache");
 
     // 测试 ARC 缓存的并发性
     mycache::ArcCache<int, int> arcCache(cacheCapacity);

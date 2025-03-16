@@ -22,10 +22,11 @@ private:
         K key;
         V value;
         int freq;                    //标识每个双向链表中节点的访问频次
+        bool dirty;                  //标识节点是否脏数据
         std::shared_ptr<Node> prev;
         std::shared_ptr<Node> next;
-        Node() : freq(1),  prev(nullptr), next(nullptr) {}
-        Node(const K& k, const V& v) : key(k), value(v), freq(1), prev(nullptr), next(nullptr) {}
+        Node() : freq(1),  prev(nullptr), next(nullptr),dirty(false) {}
+        Node(const K& k, const V& v) : key(k), value(v), freq(1), prev(nullptr), next(nullptr) ,dirty(false){}
     };
 
     using NodePtr = std::shared_ptr<Node>;
@@ -89,7 +90,7 @@ private:
     int maxAverageNum;                                      //最大平均访问缓存频次数
     int curAverageNum;                                      //当前平均访问缓存频次数
     int curTotalNum;                                        //当前访问缓存频次总数
-    std::mutex mtx;                                       //互斥锁
+    std::mutex mtx;                                        //互斥锁
     LfuNodeMap nodeMap;                                     //节点哈希表，快速访问节点
     LfufreqMap freqListMap;                                 //访问频次哈希表，快速访问频次对应的双向链表
 
