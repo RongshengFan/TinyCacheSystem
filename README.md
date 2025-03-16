@@ -41,14 +41,23 @@
 - VsCode
 
 当然，你也可以使用make进行编译，在test文件夹里写好了一个makefile文件，你只需要更改source对应的测试文件就好
+
 进入test文件夹
+
 `cd test`
+
 清理原先的编译文件
+
 `make clean`
+
 编译
+
 `make`
+
 运行
+
 `./test4`
+
 也可以是其他测试文件，如test1，test2等。
 
 
